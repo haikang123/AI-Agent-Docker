@@ -1,0 +1,15 @@
+# 向量数据库
+chroma_memory_db/
+chroma_rag_db/
+
+# 环境变量与密钥
+.env
+
+# Python 缓存
+__pycache__/
+
+# VS Code 配置
+.vscode/
+
+# 向量嵌入缓存目录
+cache/

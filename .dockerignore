@@ -1,0 +1,23 @@
+# 敏感配置文件
+.env
+.env.local
+
+# 数据目录（不打包进镜像）
+chroma_rag_db/
+chroma_memory_db/
+cache/
+mysql/
+
+# Python缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Git相关
+.git/
+.gitignore
+
+# 文档
+README.md
+LICENSE

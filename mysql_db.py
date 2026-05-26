@@ -6,13 +6,21 @@ MySQL 数据库持久化模块
 
 import os
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple
 from pathlib import Path
 
-from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer, Boolean, JSON, text
+from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer, Boolean, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from sqlalchemy.exc import SQLAlchemyError
+
+# 配置日志格式和级别
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # ==================== 配置区 ====================
 # 所有 MySQL 配置在 init_mysql() 中动态读取环境变量，确保加载顺序正确
@@ -39,7 +47,6 @@ class UserMemory(Base):
     user_id = Column(String(100), nullable=False, index=True)
     memory_id = Column(String(36), unique=True, nullable=False)
     content = Column(Text, nullable=False)
-    metadata_json = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.now)
     is_deleted = Column(Boolean, default=False)
 
@@ -52,7 +59,6 @@ class ConversationLog(Base):
     user_id = Column(String(100), nullable=False)
     role = Column(String(20), nullable=False)
     content = Column(Text)
-    tool_name = Column(String(100))
     created_at = Column(DateTime, default=datetime.now)
 
 # ==================== 数据库连接管理 ====================
@@ -83,10 +89,10 @@ def init_mysql():
         )
         Base.metadata.create_all(engine)
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        print("✅ MySQL 数据库连接成功，表已就绪")
+        logger.info("✅ MySQL 数据库连接成功，表已就绪")
         return engine
     except Exception as e:
-        print(f"⚠️ MySQL 连接失败，将回退到本地文件存储。错误：{e}")
+        logger.warning(f"⚠️ MySQL 连接失败，将回退到本地文件存储。错误：{e}")
         engine = None
         SessionLocal = None
         return None
@@ -112,7 +118,7 @@ def load_file_hash_records() -> Dict[str, str]:
         records = {row[0]: row[1] for row in result}
         return records
     except Exception as e:
-        print(f"加载文件哈希记录失败: {e}")
+        logger.error(f"加载文件哈希记录失败: {e}")
         return {}
     finally:
         session.close()
@@ -124,19 +130,17 @@ def update_file_hash_record(file_path: str, file_hash: str) -> bool:
     if session is None:
         return False
     try:
-        # 使用 ON DUPLICATE KEY UPDATE 实现 upsert
         session.execute(
             text("INSERT INTO file_hash_records (file_path, file_hash, updated_at) "
-                 "VALUES (:fp, :fh, :now) "
-                 "ON DUPLICATE KEY UPDATE file_hash = :fh2, updated_at = :now2"),
-            {"fp": file_path, "fh": file_hash, "now": datetime.now(),
-             "fh2": file_hash, "now2": datetime.now()}
+                 "VALUES (:fp, :fh, NOW()) "
+                 "ON DUPLICATE KEY UPDATE file_hash = :fh2, updated_at = NOW()"),
+            {"fp": file_path, "fh": file_hash, "fh2": file_hash}
         )
         session.commit()
         return True
     except Exception as e:
         session.rollback()
-        print(f"更新文件哈希记录失败: {e}")
+        logger.error(f"更新文件哈希记录失败: {e}")
         return False
     finally:
         session.close()
@@ -156,7 +160,7 @@ def remove_file_hash_record(file_path: str) -> bool:
         return True
     except Exception as e:
         session.rollback()
-        print(f"删除文件哈希记录失败: {e}")
+        logger.error(f"删除文件哈希记录失败: {e}")
         return False
     finally:
         session.close()
@@ -169,7 +173,7 @@ def get_user_memories(user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
         return []
     try:
         result = session.execute(
-            text("SELECT user_id, memory_id, content, metadata_json, created_at "
+            text("SELECT user_id, memory_id, content, created_at "
                  "FROM user_memories "
                  "WHERE user_id = :uid AND is_deleted = 0 "
                  "ORDER BY created_at DESC LIMIT :lim"),
@@ -181,12 +185,11 @@ def get_user_memories(user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
                 "user_id": row[0],
                 "memory_id": row[1],
                 "content": row[2],
-                "metadata_json": row[3],
-                "created_at": row[4]
+                "created_at": row[3]
             })
         return memories
     except Exception as e:
-        print(f"获取用户记忆失败: {e}")
+        logger.error(f"获取用户记忆失败: {e}")
         return []
     finally:
         session.close()
@@ -206,12 +209,12 @@ def soft_delete_memory(memory_id: str) -> bool:
         return True
     except Exception as e:
         session.rollback()
-        print(f"软删除记忆失败: {e}")
+        logger.error(f"软删除记忆失败: {e}")
         return False
     finally:
         session.close()
 
-def log_conversation(session_id: str, user_id: str, role: str, content: str, tool_name: str = None) -> bool:
+def log_conversation(session_id: str, user_id: str, role: str, content: str) -> bool:
     """记录一条对话日志"""
     import mysql_db as db_module
     session = _get_session()
@@ -219,15 +222,15 @@ def log_conversation(session_id: str, user_id: str, role: str, content: str, too
         return False
     try:
         session.execute(
-            text("INSERT INTO conversation_logs (session_id, user_id, role, content, tool_name) "
-                 "VALUES (:sid, :uid, :role, :content, :tname)"),
-            {"sid": session_id, "uid": user_id, "role": role, "content": content, "tname": tool_name}
+            text("INSERT INTO conversation_logs (session_id, user_id, role, content, created_at) "
+                 "VALUES (:sid, :uid, :role, :content, NOW())"),
+            {"sid": session_id, "uid": user_id, "role": role, "content": content}
         )
         session.commit()
         return True
     except Exception as e:
         session.rollback()
-        print(f"记录对话日志失败: {e}")
+        logger.error(f"记录对话日志失败: {e}")
         return False
     finally:
         session.close()
@@ -245,9 +248,9 @@ def clean_old_conversation_logs(days: int = 90):
             {"cut": cutoff}
         )
         session.commit()
-        print(f"已清理 {days} 天前的对话日志")
+        logger.info(f"已清理 {days} 天前的对话日志")
     except Exception as e:
         session.rollback()
-        print(f"清理对话日志失败: {e}")
+        logger.error(f"清理对话日志失败: {e}")
     finally:
         session.close()

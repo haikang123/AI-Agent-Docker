@@ -41,7 +41,7 @@ services:
     volumes:
       - ./chroma_rag_db:/app/chroma_rag_db
       - ./chroma_memory_db:/app/chroma_memory_db
-      - ./docs:/app/docs
+      - ./docs:/app/docs:ro
       - ./cache:/app/cache
     depends_on:
       db:

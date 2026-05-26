@@ -17,7 +17,7 @@ services:
     networks:
       - ai_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uai_assistant", "-p123456"]
       interval: 10s
       timeout: 5s
       retries: 5

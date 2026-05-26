@@ -13,3 +13,19 @@ __pycache__/
 
 # 向量嵌入缓存目录
 cache/
+
+# 虚拟环境（防止误传几十G的本地环境）
+venv/
+.venv/
+
+# 运行日志（自动生成，没必要提交）
+*.log
+logs/
+
+# 系统自动生成的垃圾文件
+.DS_Store
+Thumbs.db
+
+# 必须保留的模板文件（防止被误忽略）
+!.env.example
+!.dockerignore

@@ -230,3 +230,4 @@ Docker 环境数据库地址必须填写 db，不可使用 127.0.0.1
 ## 项目演示
 
 ![项目演示动图](assets/demo.gif)
+<img src="assets/demo.gif" width="640" alt="项目演示动图">

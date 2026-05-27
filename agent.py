@@ -52,9 +52,9 @@ import mysql_db as db_module
 
 # ==================== 第2层：大模型与向量库初始化（优化：API预校验+智能错误提示）====================
 try:
-    model = ChatTongyi(model_name="qwen-plus", temperature=CHAT_TEMPERATURE, dashscope_api_key=API_KEY)
-    llm_rag = ChatTongyi(model_name="qwen-plus", temperature=RAG_TEMPERATURE, dashscope_api_key=API_KEY)
-    llm_chat = ChatTongyi(model_name="qwen-turbo", temperature=CHAT_TEMPERATURE, dashscope_api_key=API_KEY)
+    model = ChatTongyi(model_name="qwen-plus", temperature=CHAT_TEMPERATURE, dashscope_api_key=API_KEY,streaming=False)
+    llm_rag = ChatTongyi(model_name="qwen-plus", temperature=RAG_TEMPERATURE, dashscope_api_key=API_KEY,streaming=False)
+    llm_chat = ChatTongyi(model_name="qwen-turbo", temperature=CHAT_TEMPERATURE, dashscope_api_key=API_KEY,streaming=False)
     
     # 新增：API可用性预校验（提前发现问题）
     logger.info("正在校验通义千问API连接...")
@@ -91,6 +91,7 @@ init_mysql()
 clean_old_conversation_logs(90)
 
 # ==================== 第3层：RAG 系统（优化：更严格的提示词约束）====================
+SYNC_ALREADY_RUN = False
 class AIRAG:
     def __init__(self, docs_dir=DOCS_DIR, cache_dir=CACHE_DIR, chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP):
         self.docs_dir = Path(docs_dir)
@@ -153,12 +154,17 @@ class AIRAG:
                 json.dump(self.file_hash_map, f, ensure_ascii=False, indent=2)
 
     def _auto_sync_vectorstore(self):
+        global SYNC_ALREADY_RUN
+        if SYNC_ALREADY_RUN:
+            return
+        SYNC_ALREADY_RUN = True
         logger.info("=" * 30 + " 文档同步中 " + "=" * 30)
         # 1. 扫描当前有效文档
         current_valid_files = {
             str(f): self._calculate_file_md5(f)
             for f in self.docs_dir.glob("*.*")
             if f.suffix.lower() in [".pdf", ".docx", ".doc"]
+            and not f.name.startswith("~$")
         }
 
         # 2. 删除已从目录中移除的文档块

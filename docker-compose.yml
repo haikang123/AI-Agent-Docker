@@ -1,28 +1,27 @@
 services:
-  # MySQL 服务
   db:
     image: mysql:8.0
     container_name: ai_assistant_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword   # 【必须】设置 root 密码
+      MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: ai_assistant
       MYSQL_USER: ai_assistant
       MYSQL_PASSWORD: 123456
-    # 【安全警告】切勿将数据库端口暴露到公网
-    # ports:
-    #   - "3306:3306"
+      TZ: Asia/Shanghai
+    command: --default-time-zone=+08:00   # 强制设置时区为北京时间
+    ports:
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - ai_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uai_assistant", "-p123456"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Streamlit 应用
   app:
     build: .
     container_name: ai_assistant_app
@@ -30,9 +29,7 @@ services:
     ports:
       - "8501:8501"
     environment:
-      # 百炼 API 密钥
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
-      # 数据库连接信息
       - MYSQL_HOST=db
       - MYSQL_PORT=3306
       - MYSQL_USER=ai_assistant
@@ -41,7 +38,7 @@ services:
     volumes:
       - ./chroma_rag_db:/app/chroma_rag_db
       - ./chroma_memory_db:/app/chroma_memory_db
-      - ./docs:/app/docs:ro
+      - ./docs:/app/docs
       - ./cache:/app/cache
     depends_on:
       db:

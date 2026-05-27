@@ -230,7 +230,4 @@ Docker 环境数据库地址必须填写 db，不可使用 127.0.0.1
 
 ## 项目演示
 
-<video width="100%" controls>
-  <source src="https://github.com/user-attachments/assets/68f660b3-f4c7-41e4-8653-cf5e11194104" type="video/mp4">
-  浏览器不支持视频播放，请升级浏览器。
-</video>
+https://github.com/user-attachments/assets/68f660b3-f4c7-41e4-8653-cf5e11194104

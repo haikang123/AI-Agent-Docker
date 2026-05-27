@@ -227,3 +227,9 @@ Docker 环境数据库地址必须填写 db，不可使用 127.0.0.1
 本项目仅用于学习与技术交流，禁止商用。
 使用过程中请严格遵守阿里云 DashScope 官方服务协议。
 ```
+## 项目演示
+
+<video width="640" height="360" controls>
+  <source src="assets/项目视频演示.mp4" type="video/mp4">
+  浏览器不支持视频播放，请升级浏览器。
+</video>
